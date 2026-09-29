@@ -1,10 +1,11 @@
 import {env} from './local-env';
-import {headers} from 'next/headers';
+import {adminLabel,adminSession} from './admin-auth';
 import {defaults,seedEntries,type Entry} from './content';
+export {adminLabel};
 export const runtimeEnv=()=>env as unknown as Record<string,any>;
 export function db(){const d=runtimeEnv().DB;if(!d)throw new Error('Content database unavailable. Please try again shortly.');return d;}
-export async function identity(){const h=await headers();return {id:h.get('oai-authenticated-user-id'),email:h.get('oai-authenticated-user-email')};}
-export async function admin(){const u=await identity();if(!u.id)return false;const row=await db().prepare('SELECT id FROM admins WHERE id = ?').bind(u.id).first();return !!row;}
+export async function admin(){return adminSession();}
+export async function ensureInitialized(){const row=await db().prepare('SELECT id FROM settings WHERE id = ?').bind('initialized').first();if(!row)await initialize();}
 export function sameOrigin(r:Request){const o=r.headers.get('origin');return !!o && o===new URL(r.url).origin;}
 export async function getSettings(){const row=await db().prepare('SELECT data FROM settings WHERE id = ?').bind('site').first();return {...defaults,...(row?JSON.parse(row.data):{})};}
 export async function getEntries(all=false):Promise<Entry[]>{const rows=await db().prepare('SELECT * FROM content ORDER BY position ASC').all();if(!rows.results.length){const initialized=await db().prepare('SELECT id FROM settings WHERE id = ?').bind('initialized').first();if(!initialized)return seedEntries.filter(e=>all||e.published===1);}return rows.results.map((r:any)=>({...JSON.parse(r.data),id:r.id,type:r.type,published:r.published,position:r.position})).filter((r:Entry)=>all||r.published===1);}
