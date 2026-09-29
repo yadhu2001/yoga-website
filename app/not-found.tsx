@@ -1,0 +1,1 @@
+export default function NotFound(){return <main className="wrap section"><div className="eyebrow">404 • Page not found</div><h1 style={{fontSize:48}}>Let’s find your way back.</h1><p style={{margin:'20px 0'}}>This page may have moved or is no longer available.</p><a className="btn" href="/">Return home</a></main>}

@@ -1,0 +1,4 @@
+import {admin,db,fail,identity,initialize,sameOrigin} from '@/lib/server';
+export async function POST(r:Request){try{if(!sameOrigin(r))return fail('Request not permitted.',403);const u=await identity();if(!u.id||!u.email)return fail('Please sign in first.',401);const count=await db().prepare('SELECT COUNT(*) AS n FROM admins').first();if(count.n>0)return fail('An administrator is already configured.',403);
+// Bootstrap is available only while Sites enforces owner-only access. Public access must not be enabled until an administrator exists.
+await db().prepare("INSERT OR IGNORE INTO admins (id,email) SELECT ?,? WHERE NOT EXISTS (SELECT 1 FROM admins)").bind(u.id,u.email).run();if(!await admin())return fail('Administrator already configured.',403);await initialize();return Response.json({ok:true});}catch(e){console.error(e);return fail();}}
