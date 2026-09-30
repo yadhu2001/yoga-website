@@ -13,6 +13,13 @@ export const defaults:Record<string,any>={
 const courseNames=['Yoga Volunteer','Yoga Protocol Instructor','Wellness Instructor','Elementary School Yoga Teacher','Primary School Yoga Teacher','Higher Secondary School Yoga Teacher','Rhythmic Fitness Instructor'];
 const durations=['36 hours','200 hours','400 hours','','','',''];
 export const slugify=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+export type Milestone={year:string;text:string};
+export function parseMilestones(raw:unknown):Milestone[]{const text=String(raw??'').trim();if(!text)return [];if(text.startsWith('[')){try{const parsed=JSON.parse(text);if(Array.isArray(parsed))return parsed.map((item:any)=>({year:String(item?.year??'').replace(/\D/g,'').slice(0,4),text:String(item?.text??item?.description??'').trim()}));}catch{}}return text.split('\n').map(line=>{const trimmed=line.trim();if(!trimmed)return null;const parts=trimmed.split('|');if(parts.length>1&&/^\d{4}$/.test(parts[0].trim()))return {year:parts[0].trim(),text:parts.slice(1).join('|').trim()};const match=trimmed.match(/^(\d{4})\s*[-–:]\s*(.+)$/);if(match)return {year:match[1],text:match[2].trim()};return {year:'',text:trimmed};}).filter((item):item is Milestone=>!!item&&!!(item.year||item.text));}
+export function milestoneItems(raw:unknown){return parseMilestones(raw).filter(item=>/^\d{4}$/.test(item.year)&&item.text).sort((a,b)=>Number(a.year)-Number(b.year)||a.text.localeCompare(b.text));}
+export type Branch={name:string;address:string;mapUrl:string};
+export function parseBranches(raw:unknown):Branch[]{const text=String(raw??'').trim();if(!text)return [];if(text.startsWith('[')){try{const parsed=JSON.parse(text);if(Array.isArray(parsed))return parsed.map((item:any)=>({name:String(item?.name??'').trim(),address:String(item?.address??'').trim(),mapUrl:String(item?.mapUrl??'').trim()}));}catch{}}return text.split('\n').map(line=>{const trimmed=line.trim();if(!trimmed)return null;const [name,...rest]=trimmed.split('|');return {name:name.trim(),address:rest.join('|').trim(),mapUrl:''};}).filter((item):item is Branch=>!!item&&!!(item.name||item.address));}
+export function branchItems(raw:unknown){return parseBranches(raw).filter(item=>item.name||item.address);}
+export function mapEmbed(url?:string){if(!url)return '';try{const u=new URL(url);if(u.protocol!=='https:')return '';if(['www.google.com','maps.google.com'].includes(u.hostname)&&u.pathname.startsWith('/maps'))return u.href;return ''}catch{return ''}}
 let n=0;
 const entry=(type:string,title:string,extra:Record<string,any>={}):Entry=>({id:`seed-${type}-${++n}`,type,title,slug:slugify(title),published:1,position:n,description:'',image:'',alt:title,...extra});
 export const seedEntries:Entry[]=[
