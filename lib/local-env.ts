@@ -59,6 +59,14 @@ type Bound = {
   raw: () => Promise<unknown[][]>;
 };
 
+function plainRow(row: Record<string, unknown>) {
+  const copy: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    copy[key] = typeof value === "bigint" ? Number(value) : value;
+  }
+  return copy;
+}
+
 function statement(database: DatabaseSync, sql: string, params: unknown[]): Bound {
   const prepared = () => database.prepare(sql);
   const bound: Bound = {
@@ -67,12 +75,12 @@ function statement(database: DatabaseSync, sql: string, params: unknown[]): Boun
       return statement(database, sql, args);
     },
     async first() {
-      const row = prepared().get(...(params as never[]));
-      return (row as Record<string, unknown> | undefined) ?? null;
+      const row = prepared().get(...(params as never[])) as Record<string, unknown> | undefined;
+      return row ? plainRow(row) : null;
     },
     async all() {
       return {
-        results: prepared().all(...(params as never[])) as Record<string, unknown>[],
+        results: (prepared().all(...(params as never[])) as Record<string, unknown>[]).map(plainRow),
         success: true,
       };
     },
