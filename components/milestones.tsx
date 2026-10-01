@@ -1,6 +1,7 @@
 'use client';
 import {useState} from 'react';
 import type {Milestone} from '@/lib/content';
+import {RichText} from '@/components/rich-text';
 
 export function MilestoneJourney({items}:{items:Milestone[]}){
   const [active,setActive]=useState(0);
@@ -14,7 +15,7 @@ export function MilestoneJourney({items}:{items:Milestone[]}){
       {items.map((item,i)=><button type="button" key={`${item.year}-${i}`} className={i===index?'journey-dot active':'journey-dot'} aria-label={`Show ${item.year}`} aria-current={i===index?'true':undefined} onClick={()=>setActive(i)}/>)}
     </div>
     <div className="journey-cards">
-      {visible.map((item,i)=>{const itemIndex=start+i;return <button type="button" key={`${item.year}-${itemIndex}`} className={itemIndex===index?'journey-card active':'journey-card'} onClick={()=>setActive(itemIndex)}><strong>{item.year}</strong><span>{item.text}</span></button>;})}
+      {visible.map((item,i)=>{const itemIndex=start+i;return <button type="button" key={`${item.year}-${itemIndex}`} className={itemIndex===index?'journey-card active':'journey-card'} onClick={()=>setActive(itemIndex)}><strong>{item.year}</strong><div className="journey-copy"><RichText text={item.text}/></div></button>;})}
     </div>
     {items.length>1&&<div className="journey-pager">{items.map((item,i)=><button type="button" key={`${item.year}-page-${i}`} className={i===index?'active':undefined} aria-label={`Show ${item.year}`} onClick={()=>setActive(i)}/>)}</div>}
   </section>;
