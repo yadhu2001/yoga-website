@@ -1,5 +1,45 @@
 const TAGS = new Set(['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'ul', 'ol', 'li', 'span', 'h2', 'h3']);
 
+export const fontFamilies = [
+  { label: 'Arial', value: 'Arial, Helvetica, sans-serif' },
+  { label: 'Georgia', value: 'Georgia, serif' },
+  { label: 'Times New Roman', value: "'Times New Roman', Times, serif" },
+  { label: 'Verdana', value: 'Verdana, Geneva, sans-serif' },
+  { label: 'Trebuchet MS', value: "'Trebuchet MS', sans-serif" },
+  { label: 'Tahoma', value: 'Tahoma, Geneva, sans-serif' },
+  { label: 'Courier New', value: "'Courier New', Courier, monospace" },
+  { label: 'Palatino', value: "'Palatino Linotype', Palatino, serif" },
+  { label: 'Garamond', value: 'Garamond, serif' },
+  { label: 'Segoe UI', value: "'Segoe UI', sans-serif" },
+  { label: 'Calibri', value: 'Calibri, Candara, sans-serif' },
+  { label: 'Cambria', value: 'Cambria, serif' },
+] as const;
+
+function fontKey(value: string) {
+  return value
+    .replace(/&quot;|&#34;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&amp;/gi, '&')
+    .replace(/["']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+const allowedFonts = new Map(fontFamilies.map((font) => [fontKey(font.value), font.value]));
+
+export function matchFont(value?: string) {
+  const key = fontKey(String(value || ''));
+  if (!key) return '';
+  const exact = allowedFonts.get(key);
+  if (exact) return exact;
+  const first = key.split(',')[0].trim();
+  for (const [stackKey, stack] of allowedFonts) {
+    if (stackKey.split(',')[0].trim() === first) return stack;
+  }
+  return '';
+}
+
 export function isRichHtml(value?: string) {
   return /<\/?[a-z][\s\S]*?>/i.test(String(value || ''));
 }
@@ -20,7 +60,8 @@ export function plainText(value?: string) {
 
 function safeStyle(style: string) {
   const parts: string[] = [];
-  for (const decl of style.split(';')) {
+  const decoded = style.replace(/&quot;|&#34;/gi, '"').replace(/&#39;|&apos;/gi, "'").replace(/&amp;/gi, '&');
+  for (const decl of decoded.split(';')) {
     const [rawProp, ...rest] = decl.split(':');
     if (!rawProp || !rest.length) continue;
     const prop = rawProp.trim().toLowerCase();
@@ -29,6 +70,10 @@ function safeStyle(style: string) {
     if (prop === 'font-size' && /^\d{1,2}(?:\.\d+)?(?:px|rem|em|%)$/.test(value)) {
       const size = parseFloat(value);
       if (size > 0 && size <= 72) parts.push(`font-size: ${value}`);
+    }
+    if (prop === 'font-family') {
+      const font = matchFont(value);
+      if (font) parts.push(`font-family: ${font}`);
     }
   }
   return parts.join('; ');
@@ -51,4 +96,4 @@ export function sanitizeRich(value?: string) {
   });
 }
 
-export const richFields = ['description', 'heading', 'aboutHeading', 'heroTitle', 'heroSubtitle', 'about', 'vision', 'mission', 'tagline', 'body', 'overview', 'curriculum', 'eligibility', 'certification', 'careers', 'closing', 'achievements', 'certifications', 'acharyaMessage', 'footerText', 'storeText'] as const;
+export const richFields = ['description', 'heading', 'aboutHeading', 'heroTitle', 'heroSubtitle', 'heroNoteTitle', 'heroNoteText', 'heroPointOne', 'heroPointTwo', 'coursesHeading', 'coursesText', 'acharyaHeading', 'about', 'vision', 'mission', 'tagline', 'body', 'overview', 'curriculum', 'eligibility', 'certification', 'careers', 'closing', 'achievements', 'certifications', 'acharyaMessage', 'whyHeading', 'programsHeading', 'videoHeading', 'footerText', 'storeHeading', 'storeText'] as const;
