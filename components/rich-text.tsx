@@ -8,7 +8,7 @@ export function RichText({text,className,inline=false}:{text?:string;className?:
     return <Tag className={className} style={{whiteSpace:'pre-line'}}>{value}</Tag>;
   }
   let html=sanitizeRich(value);
-  if(inline)html=html.replace(/^<p>/,'').replace(/<\/p>$/,'');
+  if(inline)html=html.trim().replace(/^<p(\s[^>]*)?>/,'').replace(/<\/p>$/,'');
   const Tag=inline?'span':'div';
   return <Tag className={className?`rich-text ${className}`:'rich-text'} dangerouslySetInnerHTML={{__html:html}}/>;
 }
