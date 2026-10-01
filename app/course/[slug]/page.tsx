@@ -1,5 +1,6 @@
 import { Site } from "@/components/site";
 import { getEntries, getSettings, publicSettings } from "@/lib/server";
+import { plainText } from "@/lib/rich-text";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
@@ -10,7 +11,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const [entries, settings] = await Promise.all([getEntries(), getSettings()]);
   const course = entries.find((entry) => entry.type === "courses" && entry.slug === slug);
   if (!course) return { title: "Course" };
-  const description = course.tagline || course.description || settings.seoDescription;
+  const description = plainText(course.tagline || course.description || settings.seoDescription);
   const base = String(settings.siteUrl || "").replace(/\/$/, "");
   return {
     title: `${course.title} | ${settings.name}`,
