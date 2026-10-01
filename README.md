@@ -4,7 +4,31 @@ Responsive yoga education website with an admin CMS, enquiry management, media s
 
 ## Stack
 
-Next.js 16 App Router source conventions, React 19, TypeScript, Tailwind CSS and shadcn components. The included Sites deployment runs the Next.js-compatible application through Vinext on Cloudflare Workers. It is not a Vercel/Node deployment. D1 stores content, leads and administrator identities; R2 stores uploaded images and PDFs. Database access is isolated in lib/server.ts. Migrating to another Next.js host requires replacing the Cloudflare bindings and dispatch-owned authentication with that host's database, object storage and admin identity integration.
+Next.js 16 App Router, React 19, TypeScript, Tailwind CSS and shadcn components. It deploys to **Vercel** with `next build`.
+
+| Purpose | Production (Vercel) | Local development |
+|---|---|---|
+| Database (content, settings, enquiries) | Turso (libSQL), when `TURSO_DATABASE_URL` is set | `.data/app.sqlite` |
+| Uploaded images, videos, PDFs | Vercel Blob, when `BLOB_READ_WRITE_TOKEN` is set | `.data/uploads/` |
+
+Both are chosen automatically in `lib/local-env.ts`; the rest of the app uses the same `db()` / `BUCKET` interface. Uploaded files keep their `/media/<id>` URLs on every backend. On Vercel, images and videos redirect to the Blob CDN, PDFs stream through `/media` and `/download` so they stay behind the admin or enquiry check, and the admin uploads files straight from the browser to Blob (up to 50 MB; Vercel functions only accept 4.5 MB). The real file type is checked after each upload and anything that is not a genuine image, video or PDF is deleted.
+
+The previous Cloudflare Workers build is still available with `npm run build:cloudflare` and `npm run dev:vinext`.
+
+## Deploying to Vercel
+
+1. **Database:** create a Turso database (vercel.com → Storage/Marketplace → Turso, or turso.tech). Copy its URL and auth token.
+2. **File storage:** in the Vercel project, open Storage → Create → **Blob**, choose **Public** access, and connect it to the project. This adds `BLOB_READ_WRITE_TOKEN` automatically.
+3. **Environment variables** (Project → Settings → Environment Variables):
+   - `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`
+   - `BLOB_READ_WRITE_TOKEN` (added by step 2)
+   - `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and a long random `ADMIN_SESSION_SECRET`
+   - `RESEND_API_KEY` (optional, for enquiry emails)
+4. **Framework preset:** Next.js (auto-detected). Build command `npm run build`, output directory left as default (`.next`).
+5. **Tables:** created automatically on the first request. To create them up front, run `npm run db:migrate` with the Turso variables in `.env`.
+6. **Existing local content (optional):** with the three storage variables in `.env`, run `npm run migrate:to-vercel -- --dry-run` to preview, then `npm run migrate:to-vercel` to copy `.data/app.sqlite` into Turso and `.data/uploads` into Blob.
+
+Local development: `npm run dev` (Next.js, http://localhost:3000). With no Turso/Blob variables it uses the `.data/` folder.
 
 ## Admin
 
@@ -26,7 +50,7 @@ Set RESEND_API_KEY as a hosted server secret. In Site settings → Integrations,
 
 ## SEO
 
-Server-rendered content; per-page title/description/canonical and noindex controls; Open Graph and Twitter metadata; LocalBusiness JSON-LD; dynamic XML sitemap; robots.txt; semantic headings; lazy image loading; explicit image dimensions; precompressed demo photography. Search indexing defaults to disabled for the private review. Enable it only after approved production content and domain setup. Uploaded files are limited to 10 MB, image/PDF magic bytes are checked, and SVG/HTML uploads are not accepted. Admin-uploaded PDFs are inaccessible without an administrator session or a one-hour lead download grant. External PDF URLs cannot provide the same object-store access enforcement; prefer R2 uploads.
+Server-rendered content; per-page title/description/canonical and noindex controls; Open Graph and Twitter metadata; LocalBusiness JSON-LD; dynamic XML sitemap; robots.txt; semantic headings; lazy image loading; explicit image dimensions; precompressed demo photography. Search indexing defaults to disabled for the private review. Enable it only after approved production content and domain setup. Uploaded files are limited to 50 MB, image/PDF magic bytes are checked, and SVG/HTML uploads are not accepted. Admin-uploaded PDFs are inaccessible without an administrator session or a one-hour lead download grant. External PDF URLs cannot provide the same object-store access enforcement; prefer R2 uploads.
 
 ## Review content and missing supplied assets
 
