@@ -62,6 +62,9 @@ function plainRow(row: Row) {
 
 // ---------- Local SQLite file (development)
 async function localEngine(): Promise<Engine> {
+  if (process.env.VERCEL) {
+    throw new Error("Database not configured: set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in Vercel → Settings → Environment Variables, then redeploy.");
+  }
   const { DatabaseSync } = await import("node:sqlite");
   mkdirSync(dataDir, { recursive: true });
   const database = new DatabaseSync(path.join(dataDir, "app.sqlite"));
@@ -226,6 +229,9 @@ const blobBucket = {
 const localBucket = {
   kind: "local" as const,
   async put(key: string, bytes: Uint8Array, options?: PutOptions) {
+    if (process.env.VERCEL) {
+      throw new Error("File storage not configured: connect a Public Vercel Blob store (adds BLOB_READ_WRITE_TOKEN), then redeploy.");
+    }
     mkdirSync(uploadDir, { recursive: true });
     writeFileSync(path.join(uploadDir, key), bytes);
     writeFileSync(
