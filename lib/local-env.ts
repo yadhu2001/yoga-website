@@ -1,5 +1,5 @@
 // Runtime bindings for the database (DB) and file storage (BUCKET).
-// - Production (Vercel): Turso/libSQL when TURSO_DATABASE_URL is set, Vercel Blob when BLOB_READ_WRITE_TOKEN is set.
+// - Production (Vercel): Supabase Postgres when DATABASE_URL (or POSTGRES_URL) is set, Vercel Blob when BLOB_READ_WRITE_TOKEN is set.
 // - Local development: a SQLite file and an uploads folder under .data/.
 // Both expose the same D1/R2-style interface, so the rest of the app does not care which one is active.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -63,7 +63,7 @@ function plainRow(row: Row) {
 // ---------- Local SQLite file (development)
 async function localEngine(): Promise<Engine> {
   if (process.env.VERCEL) {
-    throw new Error("Database not configured: set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN in Vercel → Settings → Environment Variables, then redeploy.");
+    throw new Error("Database not configured: set DATABASE_URL (Supabase → Connect → Transaction pooler) in Vercel → Settings → Environment Variables, then redeploy.");
   }
   const { DatabaseSync } = await import("node:sqlite");
   mkdirSync(dataDir, { recursive: true });
@@ -93,38 +93,58 @@ async function localEngine(): Promise<Engine> {
   };
 }
 
-// ---------- Turso / libSQL (production)
-async function tursoEngine(): Promise<Engine> {
-  const { createClient } = await import("@libsql/client");
-  const client = createClient({
-    url: process.env.TURSO_DATABASE_URL as string,
-    authToken: process.env.TURSO_AUTH_TOKEN || undefined,
-  });
-  const toRows = (result: { columns: string[]; rows: ArrayLike<unknown>[] }) =>
-    Array.from(result.rows).map((row) => {
-      const values = row as ArrayLike<unknown>;
-      const out: Row = {};
-      result.columns.forEach((column, index) => {
-        out[column] = values[index];
-      });
-      return plainRow(out);
-    });
-  const ready = await client.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'content'");
-  if (!ready.rows.length) await client.batch(migrationStatements(), "write");
+// ---------- Supabase / Postgres (production)
+export function postgresUrl() {
+  return process.env.DATABASE_URL || process.env.POSTGRES_URL || "";
+}
+
+export function postgresSchema() {
+  const schema = process.env.DATABASE_SCHEMA || "yoga_site";
+  if (!/^[a-z_][a-z0-9_]*$/.test(schema)) throw new Error("DATABASE_SCHEMA may only contain lowercase letters, numbers and _.");
+  return schema;
+}
+
+// Supabase needs SSL; its certificate is not in Node's default store, so verification is relaxed
+// (the connection is still encrypted). Any sslmode in the URL is dropped so this setting applies.
+export function postgresConfig() {
+  const url = new URL(postgresUrl());
+  url.searchParams.delete("sslmode");
+  const local = ["localhost", "127.0.0.1"].includes(url.hostname);
+  return { connectionString: url.toString(), ssl: local ? undefined : { rejectUnauthorized: false } };
+}
+
+async function postgresEngine(): Promise<Engine> {
+  const { default: pg } = await import("pg");
+  const { pgSchemaStatements, toPostgres } = await import("./pg-schema.mjs");
+  // bigint (timestamps, counts) comes back as a string by default; the app expects numbers.
+  pg.types.setTypeParser(20, (value: string) => Number(value));
+  const schema = postgresSchema();
+  const pool = new pg.Pool({ ...postgresConfig(), max: 3, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 15_000 });
+  const ready = await pool.query("SELECT to_regclass($1) AS t", [`"${schema}".content`]);
+  if (!ready.rows[0]?.t) for (const sql of pgSchemaStatements(schema)) await pool.query(sql);
+  const sqlFor = (sql: string) => toPostgres(sql, schema);
   return {
     async all(sql, params) {
-      return toRows(await client.execute({ sql, args: params as never[] }));
+      return (await pool.query(sqlFor(sql), params)).rows.map(plainRow);
     },
     async run(sql, params) {
-      const result = await client.execute({ sql, args: params as never[] });
-      return { changes: result.rowsAffected, last_row_id: result.lastInsertRowid ?? 0 };
+      const result = await pool.query(sqlFor(sql), params);
+      return { changes: result.rowCount ?? 0, last_row_id: 0 };
     },
     async batch(items) {
-      const results = await client.batch(
-        items.map((item) => ({ sql: item.sql, args: item.params as never[] })),
-        "write",
-      );
-      return results.map(toRows);
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const results: Row[][] = [];
+        for (const item of items) results.push((await client.query(sqlFor(item.sql), item.params)).rows.map(plainRow));
+        await client.query("COMMIT");
+        return results;
+      } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw error;
+      } finally {
+        client.release();
+      }
     },
   };
 }
@@ -132,7 +152,7 @@ async function tursoEngine(): Promise<Engine> {
 let enginePromise: Promise<Engine> | null = null;
 function engine() {
   if (!enginePromise) {
-    enginePromise = (process.env.TURSO_DATABASE_URL ? tursoEngine() : localEngine()).catch((error) => {
+    enginePromise = (postgresUrl() ? postgresEngine() : localEngine()).catch((error) => {
       enginePromise = null;
       throw error;
     });

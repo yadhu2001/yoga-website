@@ -1,25 +1,18 @@
-// Creates the database tables in Turso (safe to run more than once).
-// Usage: TURSO_DATABASE_URL=... TURSO_AUTH_TOKEN=... npm run db:migrate
-// The app also does this automatically on first request, so this is optional.
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { createClient } from "@libsql/client";
+// Creates the site's tables in Supabase/Postgres (safe to run more than once).
+// Usage: put DATABASE_URL in .env (Supabase → Connect → Transaction pooler), then: npm run db:migrate
+// The site also does this automatically on its first request, so this is optional.
+import pg from "pg";
+import { pgSchemaStatements } from "../lib/pg-schema.mjs";
 import { loadEnv } from "./load-env.mjs";
+import { postgresClientConfig, postgresSchema } from "./postgres-config.mjs";
 
 loadEnv();
-const url = process.env.TURSO_DATABASE_URL;
-if (!url) {
-  console.error("Set TURSO_DATABASE_URL (and TURSO_AUTH_TOKEN) first, in .env or the shell.");
-  process.exit(1);
+const client = new pg.Client(postgresClientConfig());
+await client.connect();
+const schema = postgresSchema();
+try {
+  for (const sql of pgSchemaStatements(schema)) await client.query(sql);
+  console.log(`Tables are ready in schema "${schema}".`);
+} finally {
+  await client.end();
 }
-const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN || undefined });
-const ready = await client.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'content'");
-if (ready.rows.length) {
-  console.log("Tables already exist. Nothing to do.");
-} else {
-  const sql = readFileSync(path.join(process.cwd(), "drizzle", "0000_modern_tarot.sql"), "utf8");
-  const statements = sql.split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
-  await client.batch(statements, "write");
-  console.log(`Created tables (${statements.length} statements).`);
-}
-client.close();
