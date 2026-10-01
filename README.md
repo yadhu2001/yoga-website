@@ -8,7 +8,7 @@ Next.js 16 App Router, React 19, TypeScript, Tailwind CSS and shadcn components.
 
 | Purpose | Production (Vercel) | Local development |
 |---|---|---|
-| Database (content, settings, enquiries) | Turso (libSQL), when `TURSO_DATABASE_URL` is set | `.data/app.sqlite` |
+| Database (content, settings, enquiries) | Supabase Postgres, when `DATABASE_URL` is set (tables in schema `yoga_site`) | `.data/app.sqlite` |
 | Uploaded images, videos, PDFs | Vercel Blob, when `BLOB_READ_WRITE_TOKEN` is set | `.data/uploads/` |
 
 Both are chosen automatically in `lib/local-env.ts`; the rest of the app uses the same `db()` / `BUCKET` interface. Uploaded files keep their `/media/<id>` URLs on every backend. On Vercel, images and videos redirect to the Blob CDN, PDFs stream through `/media` and `/download` so they stay behind the admin or enquiry check, and the admin uploads files straight from the browser to Blob (up to 50 MB; Vercel functions only accept 4.5 MB). The real file type is checked after each upload and anything that is not a genuine image, video or PDF is deleted.
@@ -17,18 +17,18 @@ The previous Cloudflare Workers build is still available with `npm run build:clo
 
 ## Deploying to Vercel
 
-1. **Database:** create a Turso database (vercel.com → Storage/Marketplace → Turso, or turso.tech). Copy its URL and auth token.
+1. **Database:** in Supabase, click **Connect → Connection string → Transaction pooler** and copy the address (port 6543), with your database password filled in. Do not use the direct connection (`db.<project>.supabase.co`): Vercel cannot reach it. The site keeps its tables in their own `yoga_site` schema with row level security on, so they never clash with other tables and are not exposed through Supabase's public API.
 2. **File storage:** in the Vercel project, open Storage → Create → **Blob**, choose **Public** access, and connect it to the project. This adds `BLOB_READ_WRITE_TOKEN` automatically.
 3. **Environment variables** (Project → Settings → Environment Variables):
-   - `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`
+   - `DATABASE_URL` (the Supabase transaction pooler address)
    - `BLOB_READ_WRITE_TOKEN` (added by step 2)
    - `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and a long random `ADMIN_SESSION_SECRET`
    - `RESEND_API_KEY` (optional, for enquiry emails)
 4. **Framework preset:** Next.js (auto-detected). Build command `npm run build`, output directory left as default (`.next`).
-5. **Tables:** created automatically on the first request. To create them up front, run `npm run db:migrate` with the Turso variables in `.env`.
-6. **Existing local content (optional):** with the three storage variables in `.env`, run `npm run migrate:to-vercel -- --dry-run` to preview, then `npm run migrate:to-vercel` to copy `.data/app.sqlite` into Turso and `.data/uploads` into Blob.
+5. **Tables:** created automatically on the first request. To create them up front, run `npm run db:migrate` with `DATABASE_URL` in `.env`.
+6. **Existing local content (optional):** with `DATABASE_URL` and `BLOB_READ_WRITE_TOKEN` in `.env`, run `npm run migrate:to-vercel -- --dry-run` to preview, then `npm run migrate:to-vercel` to copy `.data/app.sqlite` into Supabase and `.data/uploads` into Blob. Content and settings in Supabase are replaced by the local copy; enquiries are merged, never deleted.
 
-Local development: `npm run dev` (Next.js, http://localhost:3000). With no Turso/Blob variables it uses the `.data/` folder.
+Local development: `npm run dev` (Next.js, http://localhost:3000). With no `DATABASE_URL` / `BLOB_READ_WRITE_TOKEN` it uses the `.data/` folder; with `DATABASE_URL` in `.env` it works directly on the Supabase database.
 
 ## Admin
 
