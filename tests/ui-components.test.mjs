@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import test, { after } from "node:test";
@@ -36,7 +37,8 @@ async function readCssTree(directory) {
 }
 
 test("emits the catalog's animation and scrolling utilities", async () => {
-  const css = await readCssTree(path.join(root, "dist"));
+  // `next build` writes CSS to .next/static; the Cloudflare build (npm run build:cloudflare) writes to dist.
+  const css = await readCssTree(path.join(root, existsSync(path.join(root, ".next", "static")) ? ".next/static" : "dist"));
 
   assert.match(css, /--tw-enter-opacity/);
   assert.match(css, /scrollbar-width:\s*thin/);

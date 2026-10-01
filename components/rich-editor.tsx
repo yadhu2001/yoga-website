@@ -36,14 +36,15 @@ export function RichEditor({value,onChange}:{value?:string;onChange:(value:strin
   if(!editor)return <div className="rich-editor"/>;
   const size=editor.getAttributes('textStyle').fontSize||'';
   const family=matchFont(editor.getAttributes('textStyle').fontFamily);
-  function styleText(apply:(chain:ReturnType<typeof editor.chain>)=>void){
-    const empty=editor.state.selection.empty;
-    const from=editor.state.selection.from;
-    const chain=editor.chain().focus();
+  const active=editor;
+  function styleText(apply:(chain:ReturnType<typeof active.chain>)=>void){
+    const empty=active.state.selection.empty;
+    const from=active.state.selection.from;
+    const chain=active.chain().focus();
     if(empty)chain.selectAll();
     apply(chain);
     chain.run();
-    if(empty)editor.commands.setTextSelection(Math.min(from,editor.state.doc.content.size));
+    if(empty)active.commands.setTextSelection(Math.min(from,active.state.doc.content.size));
   }
   return <div className="rich-editor">
     <div className="rich-toolbar">

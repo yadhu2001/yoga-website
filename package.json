@@ -6,17 +6,22 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "dev:vinext": "vite",
+    "build:cloudflare": "node scripts/build-verified.mjs",
     "install:ci": "bash scripts/install-ci.sh",
-    "dev": "vite",
-    "build": "node scripts/build-verified.mjs",
-    "start": "vinext start",
     "test": "npm run build && node --test tests/*.test.mjs",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate"
+    "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "migrate:to-vercel": "node scripts/migrate-local-to-vercel.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
     "@hookform/resolvers": "^5.7.1",
+    "@libsql/client": "^0.15.15",
     "@shadcn/react": "^0.3.0",
     "@tiptap/extension-color": "^3.31.4",
     "@tiptap/extension-text-style": "^3.31.4",
@@ -24,6 +29,7 @@
     "@tiptap/pm": "^3.31.4",
     "@tiptap/react": "^3.31.4",
     "@tiptap/starter-kit": "^3.31.4",
+    "@vercel/blob": "^2.8.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "cmdk": "^1.1.1",
