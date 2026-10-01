@@ -51,4 +51,4 @@ export function sanitizeRich(value?: string) {
   });
 }
 
-export const richFields = ['description', 'heading', 'aboutHeading', 'heroTitle', 'heroSubtitle', 'about', 'vision', 'mission', 'tagline', 'body', 'overview', 'curriculum', 'eligibility', 'certification', 'careers', 'closing', 'achievements', 'certifications', 'acharyaMessage', 'footerText', 'storeText'] as const;
+export const richFields = ['description', 'heading', 'aboutHeading', 'heroTitle', 'heroSubtitle', 'about', 'vision', 'mission', 'tagline', 'body', 'overview', 'curriculum', 'eligibility', 'certification', 'careers', 'closing', 'achievements', 'certifications', 'acharyaMessage', 'footerText', 'storeText', 'eventsDescription', 'instructorsDescription', 'qualification'] as const;
